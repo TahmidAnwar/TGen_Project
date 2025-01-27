@@ -1,0 +1,1046 @@
+---
+title: "Fragmentomics of treated PBT29 cell line"
+author: "Tahmid, Mojca"
+date: "2024-07-12"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE,
+	results='hide',
+	fig.keep='all'
+)
+knitr::opts_knit$set(root.dir = "/Volumes/scratch/mstampar/Helios/PBT29")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("cfDNAPro", quietly = TRUE))
+    install.packages("cfDNAPro")
+
+library(scales)
+library(ggpubr)
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(cfDNAPro)
+library('rstatix')
+
+data_path<-"/Volumes/scratch/mstampar/Helios/PBT29/R_input_all"
+data_path_ABCG2<-"/Volumes/scratch/mstampar/Helios/PBT29/R_input_ABCG2"
+list.files(data_path, full.names = TRUE,recursive = TRUE)
+
+```
+
+```{r plot_setup}
+
+#setup colors
+color1<-'orange'
+color2<-'blue3'
+color3<-'turquoise3'
+color4<-'hotpink'
+color5<-'green3'
+
+all_colors<-c(color1,color2,color3,color4,color5)
+
+# Set an order for those groups (i.e. the levels of factors).
+order <- c("Control","GB13","Pevo","Quis","TMZ")
+
+# setup theme for ggplots
+
+fragment_size_distribution_theme<-theme(axis.title.x = element_blank(),
+              axis.title.y = element_text(size=10))
+
+
+fragment_size_distribution_compare_theme<-theme(
+                                                axis.title.x = element_text(size=11),
+                                                axis.title.y = element_text(size=10),
+                                                legend.position = c(0.9, 0.5),
+                                                legend.text = element_text( size = 11),
+                                                legend.title = element_blank())
+
+
+
+inter_peak_distance_theme<-theme(
+                                  axis.title.x = element_text(size=12,face="bold"),
+                                  legend.position = c(0.9, 0.5),
+                                  legend.text = element_text( size = 11),
+                                  legend.title = element_blank())
+
+
+highliting_peaks_and_valleys_theme<-theme(
+                                                axis.title.x = element_text(size=11),
+                                                axis.title.y = element_text(size=10),
+                                                legend.text = element_text( size = 11),                                                                                      legend.title = element_blank())
+  
+ 
+
+
+```
+
+# Whole genome
+
+## Fragment Size Distribution of Each Group
+```{r}
+# Define a list for the groups/cohorts.
+grp_list<-list("Control"="Control",
+               "GB13"="GB13",
+               "Pevo"="Pevo",
+               "Quis"="Quis",
+               "TMZ"="TMZ")
+
+
+result<-sapply(grp_list, function(x){
+  result <-callSize(path = data_path,) %>% 
+    dplyr::filter(group==as.character(x)) %>% 
+    plotSingleGroup()
+}, simplify = FALSE)
+
+# Multiplexing the plots in one figure
+x_lim<-c(0,300)
+suppressWarnings(
+  multiplex1 <-
+    ggarrange(result$Control$prop_plot + 
+              fragment_size_distribution_theme+
+                xlim(x_lim)+
+            scale_color_manual(values=c(color1)),
+            result$GB13$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color2)),
+            result$Pevo$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color3)),
+            result$Control$cdf_plot+
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color1)),
+            result$GB13$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color2)),
+            result$Pevo$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color3)),
+            labels = c("Control (n=1)", "GB13 (n=1)", "Pevo (n=1)"),
+            label.x = 0.2,
+            font.label=list(size=10),
+            ncol = 3,
+            nrow = 2))
+
+multiplex1
+
+suppressWarnings(
+  multiplex2 <-
+    ggarrange(result$Quis$prop_plot + 
+              fragment_size_distribution_theme+
+                xlim(x_lim)+
+            scale_color_manual(values=c(color4)),
+            result$TMZ$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color5)),
+            result$Quis$cdf_plot+
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color4)),
+            result$TMZ$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color5)),
+            labels = c("Quis (n=1)", "TMZ (n=1)"),
+            label.x = 0.2,
+            font.label=list(size=10),
+            ncol = 2,
+            nrow = 2))
+
+multiplex2
+```
+
+## Median Size Metrics
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Median size fragment distribution is calculated for each cohort
+
+# Generate plots.
+compare_grps<-callMetrics(data_path) %>% plotMetrics(order=order)
+
+
+y_lim<-c(0, 0.05)
+x_lim<-c(30,300)
+# Modify plots.
+p1<-compare_grps$median_prop_plot +
+  ylim(y_lim) +
+  scale_color_manual(values=c(all_colors))+
+  # scale_x_continuous(breaks=x_axis_breaks)+
+  xlim(x_lim)+
+  fragment_size_distribution_compare_theme
+
+p2<-compare_grps$median_cdf_plot +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values=c(all_colors))+
+  # scale_x_continuous(breaks=x_axis_breaks)+
+  xlim(x_lim)+
+  fragment_size_distribution_compare_theme
+
+
+
+# Finalize plots.
+suppressWarnings(
+  median_grps<-ggpubr::ggarrange(p1,
+                       p2,
+                       label.x = 0.4,
+                       ncol = 1,
+                       nrow = 2
+                       ))
+
+
+median_grps
+
+```
+
+## Modal fragment size
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+#displaying the mode of fragment size for each sample in a cohort... we currently have 1 per cohort... the limits are set at the known modes of fragments for cancer and normal samples, 81?, 111?, 167
+
+# Generate mode bin chart.
+mode_bin <- callMode(data_path) %>% plotMode(order=order,hline = c(167,150,111,81))
+final_plot<-mode_bin+
+            scale_x_continuous(breaks=c(1,2,3,4,5),labels=order)+
+            scale_fill_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(final_plot))
+```
+### Proportion of reads size 150 or less 
+
+```{r}
+#collecting proportion data per group
+Len_Prop_All<-callSize(path = data_path)
+
+Len_Prop_All<- Len_Prop_All %>% mutate( above_bellow_150=
+                                          case_when(
+                                            insert_size < 151 ~ "bellow or equal to 150bp",
+                                            insert_size >= 151 ~ "above 150bp"
+                                          ))
+        
+Len_Prop_150<-select(Len_Prop_All,group,prop,above_bellow_150)
+Len_Prop_150_summary<-ddply(Len_Prop_150, .(group,above_bellow_150), summarise,
+                       Prop = sum(prop))
+
+ggplot(Len_Prop_150_summary, aes(fill=above_bellow_150, y=Prop, x=group)) + 
+    geom_bar(position="stack", stat="identity")
+```
+
+
+## Stacked Bar Chart
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# same data as in previous graph but displayed as stacked graph, with stacked bars partition for each cohort between 166 and 167
+# Because all our cohorts have 1 sample and all our samples have exactly 166 mode this looks ugly/uninteresting
+
+mode_stacked <- 
+  callMode(data_path) %>% 
+  plotModeSummary(order=order,
+                  mode_partition = list(c(166,167)))
+
+# Modify the plot using ggplot syntax.
+mode_stacked <- mode_stacked + theme(legend.position = "top")
+
+
+# Show the plot.
+suppressWarnings(print(mode_stacked))
+```
+
+## Inter-peak/valley Distance
+
+### Inter-peak distance
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# 10 bp periodical oscillations were observed in cell-free DNA fragmentation patterns, to quantify this feature, we could calculate the inter-peak and inter-valley distances.
+
+# Plot and modify inter-peak distances.
+# Need to look why the limit is set at 50 to 135
+peak_distance<-callPeakDistance(path = data_path,  limit = c(31, 143))
+ inter_peak_dist<-callPeakDistance(path = data_path,  limit = c(31, 143)) %>%
+  plotPeakDistance(order = order) +
+  labs(y="Fraction") +
+  xlim(c(0,16))+
+    inter_peak_distance_theme+
+    scale_color_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(inter_peak_dist))
+
+#Interpretation of our plot for now (need to actually look at what this means biologically):
+# TP01 has 1/3 of fragments with 9 bp oscillations, 1/3 with 11 bp oscillations and 1/3 with 12 bp
+# TP04 has 2/5 of fragments with 10 bp oscillations, 1/5 with 11 bp oscillations and 1/5 with 12 bp
+# TP06 has 1/2 of fragments with 11 bp oscillations, 1/4 with 9 bp oscillations and 1/4 with 12 bp
+
+
+```
+
+### Inter-valley distance
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Plot and modify inter-peak distances.
+valley_distance<-callValleyDistance(path = data_path,  limit = c(31, 143))
+inter_valley_dist<-callValleyDistance(path = data_path,  
+                                      limit = c(31,143)) %>%
+  plotValleyDistance(order = order) +
+  labs(y="Fraction") +
+    inter_peak_distance_theme+
+  xlim(c(0,16))+
+    scale_color_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(inter_valley_dist))
+
+
+#Interpretation of our plot for now (need to actually look at what this means biologically):
+# TP01 has 1/2 of fragments with 10 bp oscillations, 1/2 with 11 bp oscillations between valleys
+# TP04 has 1/4 of fragments with 7 bp oscillations, 1/2 with 10 bp oscillations and 1/4 with 11 bp
+# TP06 has 3/4 of fragments with 10 bp oscillations, 1/4 with 11 bp oscillations and 1/4 with 12 bp
+```
+
+### Highliting peaks and valleys
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# SI am still trying to figure out what exactly this one is showing, but I thinkred dashed lines are where the peaks of fragment sizes are and blue are the valleys and the distance between two consecutive red lines or 2 consecutive blue lines is used to create the above graphs showing inter-peak and inter-valley distances
+
+# Calculate peaks and valleys.
+peaksControl <- callPeakDistance(path = data_path,groups = c("Control"),  limit = c(31, 143)) 
+valleysControl <- callValleyDistance(path = data_path,groups = c("Control"),  limit = c(31, 143)) 
+peaksGB13 <- callPeakDistance(path = data_path,groups = c("GB13"),  limit = c(31, 143)) 
+valleysGB13 <- callValleyDistance(path = data_path,groups = c("GB13"),  limit = c(31, 143)) 
+peaksPevo <- callPeakDistance(path = data_path,groups = c("Pevo"),  limit = c(31, 143)) 
+valleysPevo <- callValleyDistance(path = data_path,groups = c("Pevo"),  limit = c(31, 143))
+peaksQuis <- callPeakDistance(path = data_path,groups = c("Quis"),  limit = c(31, 143)) 
+valleysQuis <- callValleyDistance(path = data_path,groups = c("Quis"),  limit = c(31, 143)) 
+peaksTMZ <- callPeakDistance(path = data_path,groups = c("TMZ"),  limit = c(31, 143)) 
+valleysTMZ <- callValleyDistance(path = data_path,groups = c("TMZ"),  limit = c(31, 143)) 
+
+# A line plot showing the fragmentation pattern of the example sample.
+exam_plot_Control <- callSize(path=data_path) %>% plotSingleGroup(order=c("Control"),vline = NULL)
+exam_plot_GB13 <- callSize(path=data_path) %>% plotSingleGroup(order=c("GB13"),vline = NULL)
+exam_plot_Pevo <- callSize(path=data_path) %>% plotSingleGroup(order=c("Pevo"),vline = NULL)
+exam_plot_Quis <- callSize(path=data_path) %>% plotSingleGroup(order=c("Quis"),vline = NULL)
+exam_plot_TMZ <- callSize(path=data_path) %>% plotSingleGroup(order=c("TMZ"),vline = NULL)
+
+
+
+x_lim<-c(31,143)
+
+# Label peaks and valleys with dashed and solid lines.
+exam_plot_prop_Control <- exam_plot_Control$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.01)) +
+  geom_vline(xintercept=peaksControl$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysControl$insert_size,colour="blue")+
+            scale_color_manual(values=c(color1))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_GB13 <- exam_plot_GB13$prop + 
+  coord_cartesian(xlim =x_lim,ylim = c(0,0.01)) +
+  geom_vline(xintercept=peaksGB13$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysGB13$insert_size,colour="blue")+
+            scale_color_manual(values=c(color2))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_Pevo <- exam_plot_Pevo$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.01)) +
+  geom_vline(xintercept=peaksPevo$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysPevo$insert_size,colour="blue")+
+            scale_color_manual(values=c(color3))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_Quis <- exam_plot_Quis$prop + 
+  coord_cartesian(xlim =x_lim,ylim = c(0,0.01)) +
+  geom_vline(xintercept=peaksQuis$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysQuis$insert_size,colour="blue")+
+            scale_color_manual(values=c(color4))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_TMZ <- exam_plot_TMZ$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.01)) +
+  geom_vline(xintercept=peaksTMZ$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysTMZ$insert_size,colour="blue")+
+            scale_color_manual(values=c(color5))+
+  highliting_peaks_and_valleys_theme
+
+# Show the plot.
+suppressWarnings(multiplex <-
+    ggarrange(exam_plot_prop_Control,
+              exam_plot_prop_GB13,
+              exam_plot_prop_Pevo,
+              exam_plot_prop_Quis,
+              exam_plot_prop_TMZ,
+            ncol = 1,
+            nrow = 3))
+
+multiplex
+
+```
+
+### Label peaks and valleys with dots.
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Calculate peaks and valleys.
+peaks <- callPeakDistance(path = data_path,  limit = c(31, 143)) 
+valleys <- callValleyDistance(path = data_path,  limit = c(31, 143)) 
+
+# A line plot showing the fragmentation pattern of the example sample.
+exam_plot_all <- callSize(path=data_path) %>% plotSingleGroup(vline = NULL)
+
+exam_plot_prop_dot<- exam_plot_all$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.01)) +
+            scale_color_manual(values=c(all_colors))+
+  geom_point(data= peaks, 
+             mapping = aes(x= insert_size, y= prop),
+             color="blue",alpha=0.5,size=3) +
+  geom_point(data= valleys, 
+             mapping = aes(x= insert_size, y= prop),
+             color="red",alpha=0.5,size=3) 
+# Show the plot.
+suppressWarnings(print(exam_plot_prop_dot))
+```
+
+## Violin plot and Kruskal Wallis Test
+
+### Proportion multiplied by num of R1 in input bam file (number of fragments)
+
+```{r}
+#collecting proportion data per group
+Len_Prop_All<-callSize(path = data_path)
+
+#transforming the prop data into count data by multiplying it with same number (the bigger the number the more resolution we get and more significant the difference calculated bellow is; maybe we should multiply by total expected reads from single sequencing run, or by total number of reads in bam file we used in the end??) and then splitting into unique rows
+ Len_Count_All<-Len_Prop_All%>% 
+  mutate(num = case_when(
+    group %in% c("Control") ~ as.integer(prop*1774829),
+    group %in% c("GB13") ~ as.integer(prop*1301026),
+    group %in% c("Pevo") ~ as.integer(prop*1647424),
+    group %in% c("Quis") ~ as.integer(prop*1900240),
+    group %in% c("TMZ") ~ as.integer(prop*1779866)))%>%
+   tidyr::uncount(num)
+ 
+ ggplot(Len_Count_All, aes(group, insert_size,fill=group))+
+  geom_violin()+ 
+  scale_fill_manual(values=c(all_colors))+
+  geom_boxplot(width=0.1,outlier.size = 0.1,fill='white')+
+  labs(title="Plot of fragment size by treatments",x="Treatment", y = "Fragment size")
+```
+ 
+\newpage
+
+<!-- #### Kruskal Wallis followed by Pairwise Wilcox -->
+
+<!-- ```{r,results='show'} -->
+<!-- # doing Kruskal Wallis test -->
+<!-- kruskal.test(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # and to find out which one pairwise has differences do pairwise wilcox test -->
+<!-- pairwise.wilcox.test(Len_Count_All$insert_size, Len_Count_All$group, -->
+<!--                  p.adjust.method = "BH") -->
+
+<!-- ``` -->
+
+<!-- #### ANOVA  -->
+
+<!-- ```{r} -->
+
+<!-- # doing ANOVA test -->
+<!-- # Compute the analysis of variance -->
+<!-- res.aov <- aov(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # Summary of the analysis -->
+<!-- summary(res.aov) -->
+
+
+<!-- TukeyHSD(res.aov) -->
+
+<!-- ``` -->
+
+#### two sample t-test
+
+```{r,results='show'}
+
+t_test<-subset(Len_Count_All,group %in% c("Control","GB13")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance()
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Pevo","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Pevo","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Quis","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test
+
+```
+
+#### two sample t-test using prop * 100 as count
+
+```{r,results='show'}
+Len_Count_All_100<-Len_Prop_All%>%
+   mutate(num = as.integer(prop*100))%>%
+   tidyr::uncount(num)
+
+t_test<-subset(Len_Count_All_100,group %in% c("Control","GB13")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance()
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Control","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Control","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Control","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("GB13","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("GB13","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("GB13","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Pevo","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Pevo","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All_100,group %in% c("Quis","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test
+
+```
+
+\newpage
+
+<!-- ### Using proportion? -->
+
+<!-- ```{r,results='show'} -->
+<!-- # doing Kruskal Wallis test -->
+<!-- kruskal.test(prop ~ group, data = Len_Prop_All) -->
+
+<!-- # and to find out which one pairwise has differences do pairwise wilcox test -->
+<!-- pairwise.wilcox.test(Len_Prop_All$prop, Len_Prop_All$group, -->
+<!--                  p.adjust.method = "BH") -->
+
+<!-- # doing ANOVA test -->
+<!-- # Compute the analysis of variance -->
+<!-- res.aov <- aov(prop ~ group, data = Len_Prop_All) -->
+
+<!-- # Summary of the analysis -->
+<!-- summary(res.aov) -->
+
+
+<!-- TukeyHSD(res.aov) -->
+
+<!-- ``` -->
+
+<!-- ### Proportion multiplied by 1000 -->
+
+<!-- ```{r} -->
+<!-- #collecting proportion data per group -->
+<!-- Len_Prop_All<-callSize(path = data_path) -->
+
+<!-- #transforming the prop data into count data by multiplying it with same number (the bigger the number the more resolution we get and more significant the difference calculated bellow is; maybe we should multiply by total expected reads from single sequencing run, or by total number of reads in bam file we used in the end??) and then splitting into unique rows -->
+<!--  Len_Count_All<-Len_Prop_All%>%  -->
+<!--   mutate(num = as.integer(prop*1000))%>% -->
+<!--    tidyr::uncount(num) -->
+
+<!--  ggplot(Len_Count_All, aes(group, insert_size,fill=group))+ -->
+<!--   geom_violin()+  -->
+<!--   scale_fill_manual(values=c(all_colors))+ -->
+<!--   geom_boxplot(width=0.1,outlier.size = 0.1,fill='white')+ -->
+<!--   labs(title="Plot of freagment size by treatments",x="Treatment", y = "Fragment size") -->
+<!-- ``` -->
+
+<!--  \newpage -->
+<!-- #### Kruskal Wallis followed by Pairwise Wilcox -->
+
+<!-- ```{r,results='show'} -->
+<!-- # doing Kruskal Wallis test -->
+<!-- kruskal.test(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # and to find out which one pairwise has differences do pairwise wilcox test -->
+<!-- pairwise.wilcox.test(Len_Count_All$insert_size, Len_Count_All$group, -->
+<!--                  p.adjust.method = "BH") -->
+
+<!-- ``` -->
+
+<!-- #### ANOVA  -->
+
+<!-- ```{r} -->
+
+<!-- # doing ANOVA test -->
+<!-- # Compute the analysis of variance -->
+<!-- res.aov <- aov(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # Summary of the analysis -->
+<!-- summary(res.aov) -->
+
+
+<!-- TukeyHSD(res.aov) -->
+
+<!-- ``` -->
+
+<!-- #### two sample t-test -->
+
+<!-- ```{r} -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Control","GB13"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Control","Pevo"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Control","Quis"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Control","TMZ"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("GB13","Pevo"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("GB13","Quis"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("GB13","TMZ"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Pevo","Quis"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Pevo","TMZ"))) -->
+<!-- t.test(insert_size ~ group, data = subset(Len_Count_All,group %in% c("Quis","TMZ"))) -->
+
+<!-- ``` -->
+\newpage
+
+# ABCG2 region only
+
+
+## Fragment Size Distribution of Each Group
+
+```{r}
+
+result<-sapply(grp_list, function(x){
+  result <-callSize(path = data_path_ABCG2,) %>% 
+    dplyr::filter(group==as.character(x)) %>% 
+    plotSingleGroup()
+}, simplify = FALSE)
+
+# Multiplexing the plots in one figure
+x_lim<-c(0,300)
+suppressWarnings(
+  multiplex1 <-
+    ggarrange(result$Control$prop_plot + 
+              fragment_size_distribution_theme+
+                xlim(x_lim)+
+            scale_color_manual(values=c(color1)),
+            result$GB13$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color2)),
+            result$Pevo$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color3)),
+            result$Control$cdf_plot+
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color1)),
+            result$GB13$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color2)),
+            result$Pevo$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color3)),
+            labels = c("Control (n=1)", "GB13 (n=1)", "Pevo (n=1)"),
+            label.x = 0.2,
+            font.label=list(size=10),
+            ncol = 3,
+            nrow = 2))
+
+multiplex1
+
+suppressWarnings(
+  multiplex2 <-
+    ggarrange(result$Quis$prop_plot + 
+              fragment_size_distribution_theme+
+                xlim(x_lim)+
+            scale_color_manual(values=c(color4)),
+            result$TMZ$prop_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color5)),
+            result$Quis$cdf_plot+
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color4)),
+            result$TMZ$cdf_plot + 
+              fragment_size_distribution_theme+
+              xlim(0,300)+
+            scale_color_manual(values=c(color5)),
+            labels = c("Quis (n=1)", "TMZ (n=1)"),
+            label.x = 0.2,
+            font.label=list(size=10),
+            ncol = 2,
+            nrow = 2))
+
+multiplex2
+```
+
+## Median Size Metrics
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Median size fragment distribution is calculated for each cohort
+
+# Generate plots.
+compare_grps<-callMetrics(data_path_ABCG2) %>% plotMetrics(order=order)
+
+
+y_lim<-c(0, 0.04)
+x_lim<-c(30,300)
+# Modify plots.
+p1<-compare_grps$median_prop_plot +
+  ylim(y_lim) +
+  scale_color_manual(values=c(all_colors))+
+  # scale_x_continuous(breaks=x_axis_breaks)+
+  xlim(x_lim)+
+  fragment_size_distribution_compare_theme
+
+p2<-compare_grps$median_cdf_plot +
+  scale_y_continuous(labels = scales::number_format(accuracy = 0.01)) +
+  scale_color_manual(values=c(all_colors))+
+  # scale_x_continuous(breaks=x_axis_breaks)+
+  xlim(x_lim)+
+  fragment_size_distribution_compare_theme
+
+
+
+# Finalize plots.
+suppressWarnings(
+  median_grps<-ggpubr::ggarrange(p1,
+                       p2,
+                       label.x = 0.4,
+                       ncol = 1,
+                       nrow = 2
+                       ))
+
+
+median_grps
+```
+
+## Modal fragment size
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+#displaying the mode of fragment size for each sample in a cohort... we currently have 1 per cohort... the limits are set at the known modes of fragments for cancer and normal samples, 81?, 111?, 167
+
+# Generate mode bin chart.
+mode_bin <- callMode(data_path_ABCG2) %>% plotMode(order=order,hline = c(167,150,111,81))
+final_plot<-mode_bin+
+            scale_fill_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(final_plot))
+```
+
+## Stacked Bar Chart
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# same data as in previous graph but displayed as stacked graph, with stacked bars partition for each cohort between 166 and 167
+# Because all our cohorts have 1 sample and all our samples have exactly 166 mode this looks ugly/uninteresting
+
+mode_stacked <- 
+  callMode(data_path_ABCG2) %>% 
+  plotModeSummary(order=order,
+                  mode_partition = list(c(166,167)))
+
+# Modify the plot using ggplot syntax.
+mode_stacked <- mode_stacked + theme(legend.position = "top")
+
+
+# Show the plot.
+suppressWarnings(print(mode_stacked))
+```
+### Proportion of reads size 150 or less 
+
+```{r}
+#collecting proportion data per group
+Len_Prop_All<-callSize(path = data_path_ABCG2)
+
+Len_Prop_All<- Len_Prop_All %>% mutate( above_bellow_150=
+                                          case_when(
+                                            insert_size < 151 ~ "bellow or equal to 150bp",
+                                            insert_size >= 151 ~ "above 150bp"
+                                          ))
+        
+Len_Prop_150<-select(Len_Prop_All,group,prop,above_bellow_150)
+Len_Prop_150_summary<-ddply(Len_Prop_150, .(group,above_bellow_150), summarise,
+                       Prop = sum(prop))
+
+ggplot(Len_Prop_150_summary, aes(fill=above_bellow_150, y=Prop, x=group)) + 
+    geom_bar(position="stack", stat="identity")
+```
+
+
+## Inter-peak/valley Distance
+
+### Inter-peak distance
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# 10 bp periodical oscillations were observed in cell-free DNA fragmentation patterns, to quantify this feature, we could calculate the inter-peak and inter-valley distances.
+
+# Plot and modify inter-peak distances.
+# Need to look why the limit is set at 50 to 135
+ inter_peak_dist<-callPeakDistance(path = data_path_ABCG2,  limit = c(31, 143)) %>%
+  plotPeakDistance(order = order) +
+  labs(y="Fraction") +
+  xlim(c(0,16))+
+    inter_peak_distance_theme+
+    scale_color_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(inter_peak_dist))
+
+#Interpretation of our plot for now (need to actually look at what this means biologically):
+# TP01 has 1/3 of fragments with 9 bp oscillations, 1/3 with 11 bp oscillations and 1/3 with 12 bp
+# TP04 has 2/5 of fragments with 10 bp oscillations, 1/5 with 11 bp oscillations and 1/5 with 12 bp
+# TP06 has 1/2 of fragments with 11 bp oscillations, 1/4 with 9 bp oscillations and 1/4 with 12 bp
+
+
+```
+
+### Inter-valley distance
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Plot and modify inter-peak distances.
+inter_valley_dist<-callValleyDistance(path = data_path_ABCG2,  
+                                      limit = c(31,143)) %>%
+  plotValleyDistance(order = order) +
+  labs(y="Fraction") +
+  xlim(c(0,16))+
+    inter_peak_distance_theme+
+    scale_color_manual(values=c(all_colors))
+
+# Show the plot.
+suppressWarnings(print(inter_valley_dist))
+
+
+#Interpretation of our plot for now (need to actually look at what this means biologically):
+# TP01 has 1/2 of fragments with 10 bp oscillations, 1/2 with 11 bp oscillations between valleys
+# TP04 has 1/4 of fragments with 7 bp oscillations, 1/2 with 10 bp oscillations and 1/4 with 11 bp
+# TP06 has 3/4 of fragments with 10 bp oscillations, 1/4 with 11 bp oscillations and 1/4 with 12 bp
+```
+
+### Highliting peaks and valleys
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# SI am still trying to figure out what exactly this one is showing, but I thinkred dashed lines are where the peaks of fragment sizes are and blue are the valleys and the distance between two consecutive red lines or 2 consecutive blue lines is used to create the above graphs showing inter-peak and inter-valley distances
+
+# Calculate peaks and valleys.
+peaksControl <- callPeakDistance(path = data_path_ABCG2,groups = c("Control"),  limit = c(31, 143)) 
+valleysControl <- callValleyDistance(path = data_path_ABCG2,groups = c("Control"),  limit = c(31, 143)) 
+peaksGB13 <- callPeakDistance(path = data_path_ABCG2,groups = c("GB13"),  limit = c(31, 143)) 
+valleysGB13 <- callValleyDistance(path = data_path_ABCG2,groups = c("GB13"),  limit = c(31, 143)) 
+peaksPevo <- callPeakDistance(path = data_path_ABCG2,groups = c("Pevo"),  limit = c(31, 143)) 
+valleysPevo <- callValleyDistance(path = data_path_ABCG2,groups = c("Pevo"),  limit = c(31, 143))
+peaksQuis <- callPeakDistance(path = data_path_ABCG2,groups = c("Quis"),  limit = c(31, 143)) 
+valleysQuis <- callValleyDistance(path = data_path_ABCG2,groups = c("Quis"),  limit = c(31, 143)) 
+peaksTMZ <- callPeakDistance(path = data_path_ABCG2,groups = c("TMZ"),  limit = c(31, 143)) 
+valleysTMZ <- callValleyDistance(path = data_path_ABCG2,groups = c("TMZ"),  limit = c(31, 143)) 
+
+# A line plot showing the fragmentation pattern of the example sample.
+exam_plot_Control <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(order=c("Control"),vline = NULL)
+exam_plot_GB13 <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(order=c("GB13"),vline = NULL)
+exam_plot_Pevo <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(order=c("Pevo"),vline = NULL)
+exam_plot_Quis <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(order=c("Quis"),vline = NULL)
+exam_plot_TMZ <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(order=c("TMZ"),vline = NULL)
+
+
+
+x_lim<-c(31,143)
+
+# Label peaks and valleys with dashed and solid lines.
+exam_plot_prop_Control <- exam_plot_Control$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.1)) +
+  geom_vline(xintercept=peaksControl$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysControl$insert_size,colour="blue")+
+            scale_color_manual(values=c(color1))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_GB13 <- exam_plot_GB13$prop + 
+  coord_cartesian(xlim =x_lim,ylim = c(0,0.1)) +
+  geom_vline(xintercept=peaksGB13$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysGB13$insert_size,colour="blue")+
+            scale_color_manual(values=c(color2))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_Pevo <- exam_plot_Pevo$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.1)) +
+  geom_vline(xintercept=peaksPevo$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysPevo$insert_size,colour="blue")+
+            scale_color_manual(values=c(color3))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_Quis <- exam_plot_Quis$prop + 
+  coord_cartesian(xlim =x_lim,ylim = c(0,0.1)) +
+  geom_vline(xintercept=peaksQuis$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysQuis$insert_size,colour="blue")+
+            scale_color_manual(values=c(color4))+
+  highliting_peaks_and_valleys_theme
+exam_plot_prop_TMZ <- exam_plot_TMZ$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.1)) +
+  geom_vline(xintercept=peaksTMZ$insert_size, colour="red",linetype="dashed") +
+  geom_vline(xintercept = valleysTMZ$insert_size,colour="blue")+
+            scale_color_manual(values=c(color5))+
+  highliting_peaks_and_valleys_theme
+
+# Show the plot.
+suppressWarnings(multiplex <-
+    ggarrange(exam_plot_prop_Control,
+              exam_plot_prop_GB13,
+              exam_plot_prop_Pevo,
+              exam_plot_prop_Quis,
+              exam_plot_prop_TMZ,
+            ncol = 1,
+            nrow = 3))
+
+multiplex
+
+
+```
+
+### Label peaks and valleys with dots.
+
+```{r, echo = FALSE,	message = FALSE,	warning = FALSE}
+# Calculate peaks and valleys.
+peaks <- callPeakDistance(path = data_path_ABCG2,  limit = c(75, 143)) 
+valleys <- callValleyDistance(path = data_path_ABCG2,  limit = c(75, 143)) 
+
+# A line plot showing the fragmentation pattern of the example sample.
+exam_plot_all <- callSize(path=data_path_ABCG2) %>% plotSingleGroup(vline = NULL)
+x_lim=c(75,143)
+exam_plot_prop_dot<- exam_plot_all$prop + 
+  coord_cartesian(xlim = x_lim,ylim = c(0,0.1)) +
+            scale_color_manual(values=c(all_colors))+
+  geom_point(data= peaks, 
+             mapping = aes(x= insert_size, y= prop),
+             color="blue",alpha=0.5,size=3) +
+  geom_point(data= valleys, 
+             mapping = aes(x= insert_size, y= prop),
+             color="red",alpha=0.5,size=3) 
+# Show the plot.
+suppressWarnings(print(exam_plot_prop_dot))
+```
+
+## Violin plot and Kruskal Wallis Test
+
+## Violin plot and Kruskal Wallis Test
+
+### Proportion multiplied by num of R1 in input bam file (number of fragments)
+
+```{r}
+#collecting proportion data per group
+Len_Prop_All<-callSize(path = data_path)
+
+#transforming the prop data into count data by multiplying it with same number (the bigger the number the more resolution we get and more significant the difference calculated bellow is; maybe we should multiply by total expected reads from single sequencing run, or by total number of reads in bam file we used in the end??) and then splitting into unique rows
+ Len_Count_All<-Len_Prop_All%>% 
+  mutate(num = case_when(
+    group %in% c("Control") ~ as.integer(prop*89),
+    group %in% c("GB13") ~ as.integer(prop*64),
+    group %in% c("Pevo") ~ as.integer(prop*85),
+    group %in% c("Quis") ~ as.integer(prop*102),
+    group %in% c("TMZ") ~ as.integer(prop*91 )))%>%
+   tidyr::uncount(num)
+ 
+ ggplot(Len_Count_All, aes(group, insert_size,fill=group))+
+  geom_violin()+ 
+  scale_fill_manual(values=c(all_colors))+
+  geom_boxplot(width=0.1,outlier.size = 0.1,fill='white')+
+  labs(title="Plot of fragment size by treatments",x="Treatment", y = "Fragment size")
+```
+ 
+\newpage
+
+<!-- #### Kruskal Wallis followed by Pairwise Wilcox -->
+
+<!-- ```{r,results='show'} -->
+<!-- # doing Kruskal Wallis test -->
+<!-- kruskal.test(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # and to find out which one pairwise has differences do pairwise wilcox test -->
+<!-- pairwise.wilcox.test(Len_Count_All$insert_size, Len_Count_All$group, -->
+<!--                  p.adjust.method = "BH") -->
+
+<!-- ``` -->
+
+<!-- #### ANOVA  -->
+
+<!-- ```{r} -->
+
+<!-- # doing ANOVA test -->
+<!-- # Compute the analysis of variance -->
+<!-- res.aov <- aov(insert_size ~ group, data = Len_Count_All) -->
+
+<!-- # Summary of the analysis -->
+<!-- summary(res.aov) -->
+
+
+<!-- TukeyHSD(res.aov) -->
+
+<!-- ``` -->
+
+#### two sample t-test
+
+```{r,results='show'}
+
+t_test<-subset(Len_Count_All,group %in% c("Control","GB13")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance()
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Control","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","Pevo")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("GB13","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Pevo","Quis")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Pevo","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test<-t_test %>% add_row(subset(Len_Count_All,group %in% c("Quis","TMZ")) %>% 
+  t_test(insert_size ~ group) %>%
+  add_significance())
+t_test
+
+```
+\newpage
+```{r}
+sessionInfo()
+```
+

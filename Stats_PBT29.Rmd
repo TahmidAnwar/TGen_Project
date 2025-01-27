@@ -1,0 +1,257 @@
+---
+title: "Stats_for_fragmentomics"
+author: "Tahmid, Mojca"
+date: "2024-07-15"
+output: pdf_document
+---
+```{r setup, include=FALSE}
+
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE,
+	fig.keep='all'
+)
+knitr::opts_knit$set(root.dir = "/Volumes/scratch/mstampar/Helios/PBT29")
+
+if (!requireNamespace("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+if (!requireNamespace("cfDNAPro", quietly = TRUE))
+    install.packages("cfDNAPro")
+
+library(scales)
+library(ggpubr)
+library(ggplot2)
+library(dplyr)
+library(plyr)
+library(cfDNAPro)
+library('rstatix')
+library(rcompanion)
+
+```
+
+
+## Chi Squared test for above/bellow 150 bp
+```{r data_import}
+Len_Count_Control<-data.frame(read.csv("/Users/mstampar/Desktop/Helios/insert_size_metrics_Control.txt",header = TRUE,sep = "\t"))
+Len_Count_Control$Group<-"Control"
+Len_Count_GB13<-data.frame(read.csv("/Users/mstampar/Desktop/Helios/insert_size_metrics_GB13.txt",header = TRUE,sep = "\t"))
+Len_Count_GB13$Group<-"GB13"
+Len_Count_TMZ<-data.frame(read.csv("/Users/mstampar/Desktop/Helios/insert_size_metrics_TMZ.txt",header = TRUE,sep = "\t"))
+Len_Count_TMZ$Group<-"TMZ"
+Len_Count_Pevo<-data.frame(read.csv("/Users/mstampar/Desktop/Helios/insert_size_metrics_Pevo.txt",header = TRUE,sep = "\t"))
+Len_Count_Pevo$Group<-"Pevo"
+Len_Count_Quis<-data.frame(read.csv("/Users/mstampar/Desktop/Helios/insert_size_metrics_Quis.txt",header = TRUE,sep = "\t"))
+Len_Count_Quis$Group<-"Quis"
+
+Len_Count_All<-rbind(Len_Count_Quis,Len_Count_Pevo,Len_Count_TMZ,Len_Count_GB13,Len_Count_Control)
+Len_Count_All<-Len_Count_All%>% mutate( above_bellow_150=
+                                          case_when(
+                                            insert_size < 151 ~ "bellow or equal to 150bp",
+                                            insert_size >= 151 ~ "above 150bp"
+                                          ))
+Len_Count_All<-Len_Count_All%>% tidyr::uncount(All_Reads.fr_count)
+
+#subset for pairwise comparisons
+Len_Count_CvsTMZ<-subset(Len_Count_All,Group %in% c('Control','TMZ'))
+Len_Count_CvsQuis<-subset(Len_Count_All,Group %in% c('Control','Quis'))
+Len_Count_CvsPev<-subset(Len_Count_All,Group %in% c('Control','Pev'))
+Len_Count_CvsGB13<-subset(Len_Count_All,Group %in% c('Control','GB13'))
+
+# Create a data frame 
+Chi <- data.frame(Len_Count_All$Group,Len_Count_All$above_bellow_150)
+Chi$Len_Count_All.Group<-as.factor(Chi$Len_Count_All.Group)
+Chi$Len_Count_All.above_bellow_150<-as.factor(Chi$Len_Count_All.above_bellow_150)
+Chi_table <- table(Chi$Len_Count_All.Group, Chi$Len_Count_All.above_bellow_150)
+
+Chi_CvsTMZ <- data.frame(Len_Count_CvsTMZ$Group,Len_Count_CvsTMZ$above_bellow_150)
+Chi_CvsTMZ$Len_Count_CvsTMZ.Group<-as.factor(Chi_CvsTMZ$Len_Count_CvsTMZ.Group)
+Chi_CvsTMZ$Len_Count_CvsTMZ.above_bellow_150<-as.factor(Chi_CvsTMZ$Len_Count_CvsTMZ.above_bellow_150)
+Chi_CvsTMZ_table <- table(Chi_CvsTMZ$Len_Count_CvsTMZ.Group, Chi_CvsTMZ$Len_Count_CvsTMZ.above_bellow_150)
+
+Chi_CvsQuis <- data.frame(Len_Count_CvsQuis$Group,Len_Count_CvsQuis$above_bellow_150)
+Chi_CvsQuis$Len_Count_CvsQuis.Group<-as.factor(Chi_CvsQuis$Len_Count_CvsQuis.Group)
+Chi_CvsQuis$Len_Count_CvsQuis.above_bellow_150<-as.factor(Chi_CvsQuis$Len_Count_CvsQuis.above_bellow_150)
+Chi_CvsQuis_table <- table(Chi_CvsQuis$Len_Count_CvsQuis.Group, Chi_CvsQuis$Len_Count_CvsQuis.above_bellow_150)
+
+Chi_CvsPev <- data.frame(Len_Count_CvsPev$Group,Len_Count_CvsPev$above_bellow_150)
+Chi_CvsPev$Len_Count_CvsPev.Group<-as.factor(Chi_CvsPev$Len_Count_CvsPev.Group)
+Chi_CvsPev$Len_Count_CvsPev.above_bellow_150<-as.factor(Chi_CvsPev$Len_Count_CvsPev.above_bellow_150)
+Chi_CvsPev_table <- table(Chi_CvsPev$Len_Count_CvsPev.Group, Chi_CvsPev$Len_Count_CvsPev.above_bellow_150)
+
+Chi_CvsGB13 <- data.frame(Len_Count_CvsGB13$Group,Len_Count_CvsGB13$above_bellow_150)
+Chi_CvsGB13$Len_Count_CvsGB13.Group<-as.factor(Chi_CvsGB13$Len_Count_CvsGB13.Group)
+Chi_CvsGB13$Len_Count_CvsGB13.above_bellow_150<-as.factor(Chi_CvsGB13$Len_Count_CvsGB13.above_bellow_150)
+Chi_CvsGB13_table <- table(Chi_CvsGB13$Len_Count_CvsGB13.Group, Chi_CvsGB13$Len_Count_CvsGB13.above_bellow_150)
+
+```
+
+
+\newpage
+### Summary of read counts
+```{r}
+ 
+# Print the table
+Chi_table %>% knitr::kable(
+    format = "latex",
+    align = "c",
+    booktabs = TRUE,
+    longtable = F,
+    linesep = "",
+    ) %>%
+  kableExtra::kable_styling(
+      position = "center",
+      latex_options = c("striped", "scale_down"),
+      stripe_color = "gray!15"
+      
+    )
+```
+
+\newpage
+### Chi squared test of group vs Above/bellow 150bp
+
+```{r}
+
+# Perform the Chi-Square Test
+chi_resultAll <- chisq_test(Chi_table)
+chi_resultCvsTMZ <- chisq_test(Chi_CvsTMZ_table)
+chi_resultCvsQuis <- chisq_test(Chi_CvsQuis_table)
+chi_resultCvsPevo <- chisq_test(Chi_CvsPev_table)
+chi_resultCvsGB13 <- chisq_test(Chi_CvsGB13_table)
+
+chi_result<-rbind(chi_resultAll,chi_resultCvsTMZ,chi_resultCvsQuis,chi_resultCvsPevo,chi_resultCvsGB13)
+chi_result$Comparison<-c("5 way comparison","Control vs TMZ","Control vs Quis","Control vs Pev","Control vs GB13")
+
+chi_result%>% knitr::kable(
+    format = "latex",
+    align = "c",
+    booktabs = TRUE,
+    longtable = F,
+    linesep = "",
+    ) %>%
+  kableExtra::kable_styling(
+      position = "center",
+      latex_options = c("striped", "scale_down"),
+      stripe_color = "gray!15"
+      
+    )
+cramerV(Chi_table)
+```
+
+\newpage
+### If I normalize the data by dividing by 1000 and rounding
+
+```{r}
+normalized_Chi_table<-round(Chi_table/1000,digits=0)
+normalized_Chi_CvsTMZ_table<-round(Chi_CvsTMZ_table/1000,digits=0)
+normalized_Chi_CvsPev_table<-round(Chi_CvsPev_table/1000,digits=0)
+normalized_Chi_CvsQuis_table<-round(Chi_CvsQuis_table/1000,digits=0)
+normalized_Chi_CvsGB13_table<-round(Chi_CvsGB13_table/1000,digits=0)
+
+# Print the table
+normalized_Chi_table %>% knitr::kable(
+    format = "latex",
+    align = "c",
+    booktabs = TRUE,
+    longtable = F,
+    linesep = "",
+    ) %>%
+  kableExtra::kable_styling(
+      position = "center",
+      latex_options = c("striped", "scale_down"),
+      stripe_color = "gray!15"
+      
+    )
+
+# Perform the Chi-Square Test
+chi_resultAll <- chisq_test(normalized_Chi_table)
+chi_resultCvsTMZ <- chisq_test(normalized_Chi_CvsTMZ_table)
+chi_resultCvsQuis <- chisq_test(normalized_Chi_CvsQuis_table)
+chi_resultCvsPev <- chisq_test(normalized_Chi_CvsPev_table)
+chi_resultCvsGB13 <- chisq_test(normalized_Chi_CvsGB13_table)
+
+normalized_chi_result<-rbind(chi_resultAll,chi_resultCvsTMZ,chi_resultCvsQuis,chi_resultCvsPev,chi_resultCvsGB13)
+normalized_chi_result$Comparison<-c("5 way comparison","Control vs TMZ","Control vs Quis","Control vs Pev","Control vs GB13")
+normalized_chi_result%>% knitr::kable(
+    format = "latex",
+    align = "c",
+    booktabs = TRUE,
+    longtable = F,
+    linesep = "",
+    ) %>%
+  kableExtra::kable_styling(
+      position = "center",
+      latex_options = c("striped", "scale_down"),
+      stripe_color = "gray!15"
+      
+    )
+cramerV(normalized_Chi_table)
+```
+
+
+\newpage
+## Two sample t-test for fragment size distribution with bonferroni correction
+```{r}
+working<-Len_Count_All
+working$Group<-  as.factor(working$Group)
+t_test(data=working, insert_size~Group,ref.group = "Control",detailed=TRUE)%>% adjust_pvalue(method = "bonferroni") %>% add_significance("p.adj")
+
+t_test(data=working, insert_size~Group,ref.group = "Control")%>% adjust_pvalue(method = "bonferroni") %>% add_significance("p.adj")
+```
+
+
+## Paired t-test on fragment length distribution
+
+#### If we restrict the fragment sizes to the interval [88,121] (since Quis does not have any smaller or larger fragments detected) we can do paired t-test. This would be more confident if we had deeper sequencing.
+
+#### paired t-test on proportions
+
+```{r}
+
+Len_Prop_All<-callMetrics("/Users/mstampar/Desktop/Helios/R_input_All/") 
+Len_Prop_All<-Len_Prop_All%>% mutate( above_bellow_150=
+                                          case_when(
+                                            insert_size < 151 ~ "bellow or equal to 150bp",
+                                            insert_size >= 151 ~ "above 150bp"
+                                          ))
+Len_Prop_All$count_norm<-ceiling(Len_Prop_All$prop_mean*100000)
+
+pairwiseWorking<-as.data.frame(subset(Len_Prop_All,insert_size>=88 & insert_size<=221))
+pairwiseWorking$group<-as.factor(pairwiseWorking$group)
+t_test(data=pairwiseWorking, prop_mean~group,ref.group = "Control",paired = TRUE)%>% adjust_pvalue(method = "bonferroni") %>% add_significance("p.adj")
+
+```
+
+#### paired t-test on counts of fragments normalized to total to 1 000 000
+
+```{r}
+pairwiseWorkingCount<-as.data.frame(subset(Len_Prop_All,insert_size>=88 & insert_size<=221))
+pairwiseWorkingCount$group<-as.factor(pairwiseWorkingCount$group)
+pairwiseWorkingCount$count_norm<-ceiling(pairwiseWorkingCount$prop_mean*1000000)
+pairwise_Count_All<-pairwiseWorkingCount%>% tidyr::uncount(count_norm)
+
+t_test(data=pairwiseWorkingCount, count_norm~group,ref.group = "Control",paired = TRUE)%>% adjust_pvalue(method = "bonferroni") %>% add_significance("p.adj")
+
+## wont work because not same length
+#t_test(data=pairwise_Count_All, insert_size~group,ref.group = "Control",paired = TRUE)%>% adjust_pvalue(method = "bonferroni") %>% add_significance("p.adj")
+```
+
+
+## Bootstraping with t-test of fragment size distribution
+
+<!-- ```{r} -->
+<!-- library(MKinfer) -->
+<!-- working<-Len_Count_CvsTMZ -->
+<!-- working$Group<-as.factor(working$Group) -->
+
+<!-- boot.t.test(insert_size~Group, data = working) -->
+<!-- ``` -->
+
+## Pairwise bootstrapped t-test
+
+```{r}
+
+```
+
+## Bootstraping with Chi squared of fragments above and bellow 150 bp
