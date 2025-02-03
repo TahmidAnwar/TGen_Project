@@ -6,7 +6,7 @@ The research aimed to analyze how ctDNA fragmentation patterns are affected by d
 
 # Features
   - Low pass whole genome sequencing using illumina.
-  - The slurm file contains the DNA sequencing pipelines, including the trimmed fastq reads, sequence alignment using BWA, filtering bam files using samtools, producing fragment size metrices using picard.
-  - The two R files contains the script for fragment pattern analysis using R.
+  - **Slurm file:** contains the DNA sequencing pipelines, including the trimmed fastq reads, sequence alignment using BWA, filtering bam files using samtools, producing fragment size metrices using picard.
+  - **R files:** contains the script for fragment pattern analysis using R, including different types of plots for fragment size distributions of PBT29 for the four drugs.
   
-# The codes can be found in the master branch of this repository
+**The codes can be found in the master branch of this repository**
